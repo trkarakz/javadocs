@@ -1,0 +1,124 @@
+Hibernate's auto-commit mode in transaction management is false by default.
+
+There are patterns that are generally used in Hibernate Transaction management.
+
+1) DB Transaction and Hibernate Session start and end simultaneously (session-per-request).
+2) Chaining sessions and transactions with detached objects (session-per-request-with-detached-objects).
+3) Multiple transaction management (session-per-conversation) connected to a session.
+
+
+
+*** Transaction Demarcation with JTA **
+----------------------------------------
+
+Hibernate uses JTA on J2EE/JEE application servers by default. Today, all J2EE/JEE application servers host JTA as built-in and any datasource used on these servers is automatically managed by JTATransactionManager.
+
+The code below exemplifies this. The session-per-request pattern is obtained by connecting the current session to the transaction of the JTA.
+
+
+- Code Example 1: embedded transaction-session management (built-in management)
+
+try {
+ UserTransaction tx = (UserTransaction)new InitialContext().lookup("java:comp/UserTransaction");
+
+ tx.begin();
+
+ factory.getCurrentSession().load(...); // hibernate session otomatik olarak açılır
+ factory.getCurrentSession().persist(...);
+
+ tx.commit(); // hibernate session otomatik olarak kapanır
+}
+catch (RuntimeException e) {
+ tx.rollback(); // hibernate session otomatik olarak kapanır
+ throw e;
+}
+
+Settings:
+    set hibernate.transaction.manager_lookup_class to a lookup strategy for your JEE container
+    set hibernate.transaction.factory_class to org.hibernate.transaction.JTATransactionFactory
+
+
+
+- Code Example 2: Case where session management is done manually
+
+UserTransaction tx = (UserTransaction)new InitialContext().lookup("java:comp/UserTransaction");
+
+Session session = factory.openSession();
+
+try {
+ tx.begin();
+
+ session.load(...);
+ session.persist(...);
+
+ session.flush();
+
+ tx.commit();
+}
+catch (RuntimeException e) {
+ tx.rollback();
+ throw e;
+}
+finally {
+ session.close();
+}
+
+
+
+** Transaction Demarcation with JDBC **
+----------------------------------------
+
+When JTA is not desired to be used, session-per-request pattern can be performed with Hibernate's Transactions without the need for JDBC API as follows:
+
+- Code Example 3:
+
+try {
+ // proxied session otomatik olarak açılır ve current Java thread'e bağlanır.
+ factory.getCurrentSession().beginTransaction(); 
+  
+ factory.getCurrentSession().load(...);
+ factory.getCurrentSession().persist(...);
+ factory.getCurrentSession().getTransaction().commit();
+}
+catch (RuntimeException e) {
+ factory.getCurrentSession().getTransaction().rollback();
+ throw e; 
+}
+
+Hibernare cannot automatically connect current session to transaction like JTA, instead it connects current java thread in proxied state state.
+
+This thread-bound strategy works in all JSE applications. In JEE applications, it is better to use JTA's transaction-bound strategy, and even in JSE applications, JTA can be used after installing it.
+
+The following settings are required to use the thread-bound strategy.
+
+Settings:
+    set hibernate.transaction.factory_class to org.hibernate.transaction.JDBCTransactionFactory
+    set hibernate.current_session_context_class to thread
+
+
+
+** Transaction Demarcation with EJB/CMT **
+------------------------------------------
+
+It is possible to configure using only annotation. Transaction is opened automatically and if there is no error in the method, it is committed, in case of error, rollback is made.
+
+
+@TransactionAttribute(TransactionAttributeType.REQUIRED)  
+public void doSomeWork() {  
+  factory.getCurrentSession().load(...);  
+  factory.getCurrentSession().persist(...);  
+}  
+
+
+In EJB2x only xml conf. There was, however, it is possible to manage transactions in a declarative manner with annotations in EJB3x.
+
+Settings:
+    set hibernate.transaction.manager_lookup_class to a lookup strategy for your JEE container
+    set hibernate.transaction.factory_class to org.hibernate.transaction.CMTTransactionFactory
+
+
+
+** Transaction Demarcation with Interceptor **
+----------------------------------------------
+
+It is possible to completely remove transaction codes from within the data access code. For this, a filter (open session in view pattern) or AOP interceptor running on each request is sufficient.

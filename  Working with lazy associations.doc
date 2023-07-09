@@ -1,0 +1,39 @@
+- Persistent Object: An object with an id existing in the database that we pulled to the session.
+
+- Transient Object: An object with no id that has not yet been persisted.
+
+- Detached Object: It is the object that is formed as a result of closing the Session to which the persistent object is connected. The object's id field is full and probably corresponds to a record in the database.
+
+
+! After hibernate3, the default value lazy is set to "true".
+
+
+"By default, Hibernate3 uses lazy select fetching for collections and lazy proxy fetching for single-valued associations."
+
+
+Lazy initialization exception
+
+Fires if there is access to the detached object after commit. For example:
+
+{
+
+   s = sessions.openSession();
+   Transaction tx = s.beginTransaction();
+
+   Hibernate.initialize();
+
+   User u = (User) s.createQuery("from User u where u.name=:userName").setString("userName", userName).uniqueResult();
+
+   Map permissions = u.getPermissions();
+
+   tx.commit();
+   s.close();
+
+   Integer accessLevel = (Integer) permissions.get("accounts"); // Error! Attempting to access detached object.
+
+}
+
+"Hibernate does not support lazy initialization for detached objects"
+
+
+If we use non-lazy links (lazy="false") too much, we draw too many objects into memory. Instead, it may make more sense to use join fetch (non-lazy fetch) in the tansactions we want.
