@@ -1,0 +1,9 @@
+id generation algorithm
+dirty check algorithm-method
+load or get used
+flushing strategy
+save-update-saveOrUpdate-merge
+save-update-delete strategy (cascading)
+session management
+transaction management
+caching strategy

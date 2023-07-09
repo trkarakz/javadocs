@@ -1,0 +1,44 @@
+Hibernate DB Flushing
+
+ If the flushing method is AUTO, hibernate flushes in 3 cases:
+
+
+1) when transaction is committed
+
+2) before query is executed (if something is pulled from the database, commits are made first so that the updated data can be pulled)
+
+3) when flush() method is called explicitly
+
+
+
+Hibenate's flushing mechanism works as a write-behind. That is, changes are written as late as possible. However, there is an exception where write-behind is not performed. This is the case where the ID generation method is set automatically (auto-generated, auto-increment id). Hibernate doesn't want objects to be idless (non-transient objects can't be idless). If auto-generated id is used, it has to insert to get the id of the object.
+
+
+Let's say it uses sequence (or a custom piece of code) for the id generation method. In this case, the insert process can be left for later. The id of the object can be retrieved from the sequence in the database with a query. If the object with the same id is requested by the same client or another client, the insert operation is performed and then the object is pulled from the database in its current form.
+
+
+The point to be noted is that the operations that update the data are kept in a queue with the logic of the queue. For example, if first insert, then delete, then select is performed, hibernate inserts the object first, then deletes it, and the select operation returns empty as it should. In this case, we can say that hibernate runs these processes as batch updates.
+
+
+Data updates are handled by the second level cache.
+
+
+Hibernate changes the order of queued jobs during batch update to avoid foreign-key constraint. The most prioritized SQL commands are insert commands. The order of priority is as follows.
+
+
+1) inserts
+
+2) updates
+
+3) deletes from collections
+
+4) inserts to collections
+
+5) delete
+
+
+Let's say we first delete a child object with id x. Then we tried to add the child object with the same id again. First, the insert operation runs and the id constraint is taken. This operation cannot be performed. The best thing to do here is to call the flush method after each delete.
+
+
+One of the other two flushing methods is to flush only during the transaction commit. The last one is to perform database synchronization only when the flush() method is called. The main drawback of these two methods is: database queries return the old version of dirty data.
+
