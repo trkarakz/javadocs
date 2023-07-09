@@ -1,0 +1,123 @@
+A simple custom @Around example   
+
+Let's say that you want to catch exceptions and log some details or just swallow it. Also you don't want to touch classes and their structure in your project. So you need to write an around aspect. Just follow the following steps.
+
+In this example, supposed that there is no spring configuration you have and your project as a maven project.
+
+1) Add the following dependencies to your pom.xml
+
+  <dependency>
+   <groupId>com.jcabi</groupId>
+   <artifactId>jcabi-aspects</artifactId>
+   <version>0.20.1</version>
+  </dependency>
+
+  <dependency>
+   <groupId>org.aspectj</groupId>
+   <artifactId>aspectjrt</artifactId>
+   <version>1.8.0</version>
+  </dependency>  
+
+2) Use the following maven plugin in your "pom.xml". This plugin executed at compile time and generate proxy classes into which your aspects injected. So class files generated with your advices.
+
+<build>
+  ..
+  <plugins>
+   <plugin>
+    <groupId>org.codehaus.mojo</groupId>
+    <artifactId>aspectj-maven-plugin</artifactId>
+    <version>1.7</version>
+    <configuration>
+     <complianceLevel>1.6</complianceLevel>
+     <encoding>${project.build.sourceEncoding}</encoding>
+     <showWeaveInfo>true</showWeaveInfo>
+     <source>1.6</source>
+     <target>1.6</target>
+     <verbose>true</verbose>
+     <aspectLibraries>
+      <aspectLibrary>
+       <groupId>com.jcabi</groupId>
+       <artifactId>jcabi-aspects</artifactId>
+      </aspectLibrary>
+     </aspectLibraries>
+    </configuration>
+    <executions>
+     <execution>
+      <id>weave-classes</id>
+      <phase>process-classes</phase>
+      <goals>
+       <goal>compile</goal>
+      </goals>
+     </execution>
+    </executions>
+   </plugin>
+  </plugins>
+  ..
+</build>
+
+
+3) This is your exception handler with @Around annotation to swallow your exceptions
+
+
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+
+@Aspect
+public class MethodExceptionHandler {
+ 
+ // "execution(* *(..))" means apply it for any modifier, any name, any arguments
+ // "@annotation(Catchable)" means annotated with @Catchable
+ @Around("execution(* *(..)) &amp;&amp; @annotation(Catchable)") 
+ public void around(ProceedingJoinPoint point) {
+  try {
+   // do something here just before invoking
+   point.proceed(); // invoke it
+   // do something here just after invoking
+  } catch (Throwable e) {
+   // log exception details and swallow it
+  }
+ }
+}
+
+4) Use the following custom method level annotation
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+public @interface Catchable {
+
+}
+
+5) Custom annotation in action
+
+
+@Catchable
+private void doSomething() {
+   // do something here
+}
+
+That's all.
+
+
+Notes
+
+- You should prefer proxy or decorator pattern if it can be applied, it is a more efficient way 
+- Also see here for already implemented useful aspects
+
+
+@Async
+@Cacheable
+@Immutable
+@LogExceptions
+@Loggable
+@Quietly
+@Parallel
+@RetryOnFailure
+@ScheduleWithFixedDelay
+@Timeable
+@UnitedThrow
